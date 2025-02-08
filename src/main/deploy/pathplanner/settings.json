@@ -3,13 +3,13 @@
   "robotLength": 0.9,
   "holonomicMode": true,
   "pathFolders": [
-    "Auto Top Start",
-    "Auto Top Start Ground Grab",
-    "New Folder"
+    "Bottom Station",
+    "Starting Positions",
+    "Top Station"
   ],
   "autoFolders": [],
-  "defaultMaxVel": 5.0,
-  "defaultMaxAccel": 15.0,
+  "defaultMaxVel": 4.0,
+  "defaultMaxAccel": 8.0,
   "defaultMaxAngVel": 540.0,
   "defaultMaxAngAccel": 720.0,
   "defaultNominalVoltage": 12.0,
