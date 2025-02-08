@@ -3,29 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 1.5123579545454546,
-        "y": 5.836505681818181
+        "x": 1.12125,
+        "y": 1.1097499999999991
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.526136363636364,
-        "y": 5.645383522727273
+        "x": 1.9597499999999997,
+        "y": 2.2212499999999986
       },
       "isLocked": false,
-      "linkedName": "UpperGroundPieces"
+      "linkedName": "Right Coral Station"
     },
     {
       "anchor": {
-        "x": 3.8639914772727275,
-        "y": 5.171732954545455
+        "x": 3.0907500000000003,
+        "y": 4.17125
       },
       "prevControl": {
-        "x": 3.0413352272727274,
-        "y": 5.4708806818181825
+        "x": 2.54475,
+        "y": 3.5277499999999993
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "UpperCloseReef"
+      "linkedName": "WestReef TopBranch"
     }
   ],
   "rotationTargets": [],
@@ -33,8 +33,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 5.0,
-    "maxAcceleration": 15.0,
+    "maxVelocity": 4.0,
+    "maxAcceleration": 8.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 118.53998518795994
+    "rotation": 0.0
   },
   "reversed": false,
-  "folder": "Auto Top Start Ground Grab",
+  "folder": "Bottom Station",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 55.0
   },
   "useDefaultConstraints": true
 }

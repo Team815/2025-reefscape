@@ -3,29 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.1576704545454546,
-        "y": 3.975142045454545
+        "x": 1.29675,
+        "y": 7.05725
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.1078125,
-        "y": 3.37684659090909
+        "x": 1.9979508196721307,
+        "y": 6.444198770491804
       },
       "isLocked": false,
-      "linkedName": "MidCloseReef"
+      "linkedName": "Left Coral Station"
     },
     {
       "anchor": {
-        "x": 3.8307528409090907,
-        "y": 2.886576704545455
+        "x": 3.9195000000000007,
+        "y": 5.32175
       },
       "prevControl": {
-        "x": 2.9748579545454548,
-        "y": 3.3020596590909084
+        "x": 3.12,
+        "y": 5.741
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "LowerCloseReef"
+      "linkedName": "TopLeft Reef Right Branch"
     }
   ],
   "rotationTargets": [],
@@ -33,8 +33,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 5.0,
-    "maxAcceleration": 15.0,
+    "maxVelocity": 4.0,
+    "maxAcceleration": 8.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -124.34609740006145
+    "rotation": -59.99999999999999
   },
   "reversed": false,
-  "folder": "New Folder",
+  "folder": "Top Station",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": -55.0
   },
   "useDefaultConstraints": true
 }

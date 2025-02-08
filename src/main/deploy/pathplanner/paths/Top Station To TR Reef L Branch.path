@@ -3,29 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 7.088139204545455,
-        "y": 6.8835227272727275
+        "x": 1.29675,
+        "y": 7.05725
       },
       "prevControl": null,
       "nextControl": {
-        "x": 6.481534090909091,
-        "y": 6.459730113636363
+        "x": 2.3205,
+        "y": 6.638
       },
       "isLocked": false,
-      "linkedName": "TopStartPosition"
+      "linkedName": "Left Coral Station"
     },
     {
       "anchor": {
-        "x": 5.1769176136363635,
-        "y": 5.121875
+        "x": 5.06025,
+        "y": 5.2925
       },
       "prevControl": {
-        "x": 5.783522727272728,
-        "y": 5.878053977272726
+        "x": 4.26075,
+        "y": 5.71175
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "UpperFarReef"
+      "linkedName": "Top Right Reef Left Branch"
     }
   ],
   "rotationTargets": [],
@@ -33,8 +33,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 8.0,
-    "maxAcceleration": 5.0,
+    "maxVelocity": 4.0,
+    "maxAcceleration": 8.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 59.99999999999999
+    "rotation": -119.99999999999999
   },
   "reversed": false,
-  "folder": "Auto Top Start Ground Grab",
+  "folder": "Top Station",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 59.99999999999999
+    "rotation": -55.0
   },
-  "useDefaultConstraints": false
+  "useDefaultConstraints": true
 }
