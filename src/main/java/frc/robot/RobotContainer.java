@@ -10,6 +10,7 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -18,8 +19,9 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.subsystems.Elevator;
 import frc.robot.subsystems.Led;
+import frc.robot.subsystems.MotorSubsystem;
+import frc.robot.subsystems.PositionSubsystem;
 
 import static edu.wpi.first.units.Units.*;
 
@@ -44,7 +46,16 @@ public class RobotContainer {
     private final SendableChooser<Command> autoChooser;
 
     private final Led led = new Led(9, 47);
-    private final Elevator elevator = new Elevator(new TalonFX(0));
+    private final PositionSubsystem elevator = new PositionSubsystem(
+        new TalonFX(0),
+        new TrapezoidProfile(new TrapezoidProfile.Constraints(80, 160)));
+
+    private final PositionSubsystem wrist = new PositionSubsystem(
+        new TalonFX(9),
+        new TrapezoidProfile(new TrapezoidProfile.Constraints(20, 40)));
+//    private final MotorSubsystem pickup = new MotorSubsystem(new TalonFX(0));
+//    private final MotorSubsystem climber = new MotorSubsystem(new TalonFX(0));
+
 
     public RobotContainer() {
         autoChooser = AutoBuilder.buildAutoChooser("Auto Top Start");
@@ -86,8 +97,14 @@ public class RobotContainer {
         joystick.b().whileTrue(drivetrain.applyRequest(() ->
             point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
         ));
-        joystick.x().whileTrue(elevator.goToHeight(50));
-        joystick.y().whileTrue(elevator.goToHeight(100));
+        joystick.x().whileTrue(Commands.parallel(
+            elevator.goToPosition(50),
+            wrist.goToPosition(40)));
+        joystick.y().whileTrue(Commands.parallel(
+            elevator.goToPosition(100),
+            wrist.goToPosition(80)));
+//        joystick.rightTrigger().whileTrue(pickup.run(0.2));
+//        joystick.leftTrigger().whileTrue(pickup.run(-0.2));
         joystick.povUp().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(0.45)));
         joystick.povDown().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(-0.45)));
         joystick.povRight().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityY(-0.45)));
