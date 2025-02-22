@@ -4,15 +4,20 @@
 
 package frc.robot;
 
-import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.path.PathPlannerPath;
+import com.revrobotics.spark.SparkBase;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.ClosedLoopConfig;
+import com.revrobotics.spark.config.MAXMotionConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -22,11 +27,8 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Led;
+import frc.robot.subsystems.MotorSubsystem;
 import frc.robot.subsystems.PositionSubsystem;
-import org.json.simple.parser.ParseException;
-
-import java.io.IOException;
-import java.util.Arrays;
 
 import static edu.wpi.first.units.Units.*;
 
@@ -51,18 +53,36 @@ public class RobotContainer {
     private final SendableChooser<Command> autoChooser;
 
     private final Led led = new Led(9, 47);
-    private final PositionSubsystem elevator = new PositionSubsystem(
-        new TalonFX(0),
-        new TrapezoidProfile(new TrapezoidProfile.Constraints(80, 160)));
 
-    private final PositionSubsystem wrist = new PositionSubsystem(
-        new TalonFX(9),
-        new TrapezoidProfile(new TrapezoidProfile.Constraints(20, 40)));
-//    private final MotorSubsystem pickup = new MotorSubsystem(new TalonFX(0));
-//    private final MotorSubsystem climber = new MotorSubsystem(new TalonFX(0));
+    private final PositionSubsystem elevator;
 
 
     public RobotContainer() {
+
+        var elevatorMotorLeader = new SparkMax(1, MotorType.kBrushless);
+        elevatorMotorLeader.configure(
+            new SparkMaxConfig()
+                .apply(new ClosedLoopConfig()
+                    .p(0.4)
+                    .i(0)
+                    .d(0)
+                    .apply(new MAXMotionConfig()
+                        .maxVelocity(6000)
+                        .maxAcceleration(12000)
+                        .allowedClosedLoopError(1))),
+            SparkBase.ResetMode.kResetSafeParameters,
+            SparkBase.PersistMode.kPersistParameters);
+
+        var elevatorMotorFollower = new SparkMax(2, MotorType.kBrushless);
+        elevatorMotorFollower.configure(
+            new SparkMaxConfig()
+                .follow(elevatorMotorLeader, true),
+            SparkBase.ResetMode.kResetSafeParameters,
+            SparkBase.PersistMode.kPersistParameters);
+
+        elevator = new PositionSubsystem(elevatorMotorLeader.getClosedLoopController(),
+            () -> elevatorMotorLeader.getEncoder().getVelocity());
+
         autoChooser = AutoBuilder.buildAutoChooser();
         autoChooser.addOption("Dynareef", Commands.none());
         SmartDashboard.putData("Auto Mode", autoChooser);
@@ -103,12 +123,14 @@ public class RobotContainer {
         joystick.b().whileTrue(drivetrain.applyRequest(() ->
             point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
         ));
-        joystick.x().whileTrue(Commands.parallel(
-            elevator.goToPosition(50),
-            wrist.goToPosition(40)));
-        joystick.y().whileTrue(Commands.parallel(
-            elevator.goToPosition(100),
-            wrist.goToPosition(80)));
+        // joystick.x().whileTrue(Commands.parallel(
+        //     elevator.goToPosition(50),
+        //     wrist.goToPosition(40)));
+        // joystick.y().whileTrue(Commands.parallel(
+        //     elevator.goToPosition(100),
+        //     wrist.goToPosition(80)));
+        joystick.x().whileTrue(elevator.goToPosition(360));
+        // joystick.y().whileTrue(pickup.run(0.2));
 //        joystick.rightTrigger().whileTrue(pickup.run(0.2));
 //        joystick.leftTrigger().whileTrue(pickup.run(-0.2));
         joystick.povUp().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(0.45)));
@@ -131,5 +153,7 @@ public class RobotContainer {
 
     public Command getAutonomousCommand() {
         return Dynareef.buildAuto();
+
+
     }
 }

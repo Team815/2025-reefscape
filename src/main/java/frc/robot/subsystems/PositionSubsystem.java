@@ -1,40 +1,30 @@
 package frc.robot.subsystems;
 
-import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.controls.PositionVoltage;
-import com.ctre.phoenix6.hardware.TalonFX;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import com.revrobotics.spark.SparkBase;
+import com.revrobotics.spark.SparkClosedLoopController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import java.util.function.DoubleSupplier;
+
 public class PositionSubsystem extends SubsystemBase {
-    private final TalonFX motor;
-    private final TrapezoidProfile profile;
+    private final SparkClosedLoopController controller;
+    private final DoubleSupplier velocitySupplier;
 
-    private final PositionVoltage request = new PositionVoltage(0).withSlot(0);
-    private TrapezoidProfile.State goal = new TrapezoidProfile.State();
-    private TrapezoidProfile.State setpoint = new TrapezoidProfile.State();
-
-    public PositionSubsystem(TalonFX motor, TrapezoidProfile profile){
-        this.motor = motor;
-        this.profile = profile;
-        motor.getConfigurator().apply(
-            new Slot0Configs().withKP(1)
-        );
+    public PositionSubsystem(SparkClosedLoopController controller, DoubleSupplier supplier) {
+        this.controller = controller;
+        velocitySupplier = supplier;
     }
 
     @Override
     public void periodic() {
-        final double TIME_STEP = 0.02;
-        setpoint = profile.calculate(TIME_STEP, setpoint, goal);
-        request.Position = setpoint.position;
-        request.Velocity = setpoint.velocity;
-        motor.setControl(request);
+        super.periodic();
+        System.out.println(velocitySupplier.getAsDouble());
     }
 
     public Command goToPosition(double position) {
         return startEnd(
-            () -> goal = new TrapezoidProfile.State(position, 0),
-            () -> goal = new TrapezoidProfile.State(0, 0));
+            () -> controller.setReference(position, SparkBase.ControlType.kMAXMotionPositionControl),
+            () -> controller.setReference(0, SparkBase.ControlType.kMAXMotionPositionControl));
     }
 }

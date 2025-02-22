@@ -1,14 +1,14 @@
 package frc.robot.subsystems;
 
-import com.ctre.phoenix6.hardware.TalonFX;
+import com.revrobotics.spark.SparkMax;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class MotorSubsystem extends SubsystemBase {
-    private final TalonFX motor;
+    private final SparkMax motor;
 
 
-    public MotorSubsystem(TalonFX motor) {
+    public MotorSubsystem(SparkMax motor) {
         this.motor = motor;
     }
 
