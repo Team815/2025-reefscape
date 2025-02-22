@@ -11,11 +11,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 public final class Dynareef {
-
-//    public static Command buildAuto() {
-//            return Commands.deferredProxy(Dynareef::buildAutoPrivate);
-//    }
-
     public static Command buildAuto() {
         var paths = Arrays.stream(
                 NetworkTableInstance
