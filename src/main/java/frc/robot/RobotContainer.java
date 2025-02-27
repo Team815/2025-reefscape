@@ -76,11 +76,10 @@ public class RobotContainer {
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
 
-        elevator = new PositionSubsystem(elevatorMotorLeader.getClosedLoopController(),
-            () -> elevatorMotorLeader.getEncoder().getVelocity());
+        elevator = new PositionSubsystem(elevatorMotorLeader);
 
         autoChooser = AutoBuilder.buildAutoChooser();
-        autoChooser.addOption("Dynareef", Commands.deferredProxy(Dynareef::buildAuto));
+        autoChooser.addOption("Dynareef", Commands.deferredProxy(() -> Dynareef.buildAuto(elevator)));
         SmartDashboard.putData("Auto Mode", autoChooser);
         configureBindings();
     }
@@ -125,7 +124,7 @@ public class RobotContainer {
         // joystick.y().whileTrue(Commands.parallel(
         //     elevator.goToPosition(100),
         //     wrist.goToPosition(80)));
-        joystick.x().whileTrue(elevator.goToPosition(360));
+        joystick.x().whileTrue(elevator.stayAtPosition(360));
         // joystick.y().whileTrue(pickup.run(0.2));
 //        joystick.rightTrigger().whileTrue(pickup.run(0.2));
 //        joystick.leftTrigger().whileTrue(pickup.run(-0.2));

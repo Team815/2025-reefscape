@@ -1,30 +1,36 @@
 package frc.robot.subsystems;
 
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkMax;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 
 import java.util.function.DoubleSupplier;
 
 public class PositionSubsystem extends SubsystemBase {
     private final SparkClosedLoopController controller;
-    private final DoubleSupplier velocitySupplier;
+    private final RelativeEncoder encoder;
 
-    public PositionSubsystem(SparkClosedLoopController controller, DoubleSupplier supplier) {
-        this.controller = controller;
-        velocitySupplier = supplier;
+    public PositionSubsystem(SparkMax motor) {
+        controller = motor.getClosedLoopController();
+        encoder = motor.getEncoder();
     }
 
-    @Override
-    public void periodic() {
-        super.periodic();
-        System.out.println(velocitySupplier.getAsDouble());
+    public Command stayAtPosition(double position) {
+        return startEnd(
+            () -> setPosition(position),
+            () -> setPosition(0));
     }
 
     public Command goToPosition(double position) {
-        return startEnd(
-            () -> controller.setReference(position, SparkBase.ControlType.kMAXMotionPositionControl),
-            () -> controller.setReference(0, SparkBase.ControlType.kMAXMotionPositionControl));
+        return runOnce(() -> setPosition(position))
+            .alongWith(new WaitUntilCommand(() -> Math.abs(encoder.getPosition() - position) < 5));
+    }
+
+    private void setPosition(double position){
+        controller.setReference(position, SparkBase.ControlType.kMAXMotionPositionControl);
     }
 }

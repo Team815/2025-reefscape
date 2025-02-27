@@ -5,21 +5,22 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.subsystems.PositionSubsystem;
 import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
 import java.util.Arrays;
 
 public final class Dynareef {
-    public static Command buildAuto() {
-        var paths = Arrays.stream(
-                NetworkTableInstance
-                    .getDefault()
-                    .getTable("dynareef")
-                    .getEntry("path")
-                    .getIntegerArray(new long[0])
-            )
-            .mapToObj(pathId -> {
+    public static Command buildAuto(PositionSubsystem elevator) {
+        var pathIds = Arrays.stream(
+            NetworkTableInstance
+                .getDefault()
+                .getTable("dynareef")
+                .getEntry("path")
+                .getIntegerArray(new long[0])
+        ).toArray();
+        var paths = Arrays.stream(pathIds).mapToObj(pathId -> {
                 try {
                     return PathPlannerPath.fromPathFile(Dynareef.getPathName((int) pathId));
                 } catch (IOException | ParseException e) {
@@ -32,8 +33,12 @@ public final class Dynareef {
             ? AutoBuilder.resetOdom(paths[0].getStartingHolonomicPose().orElseThrow())
             : Commands.none();
 
-        for (var path : paths) {
-            autoCommand = autoCommand.andThen(AutoBuilder.followPath(path));
+        for (var i = 0; i < pathIds.length; i++) {
+            var path = paths[i];
+            var pathId = pathIds[i];
+            var followPath = AutoBuilder.followPath(path)
+                .alongWith(elevator.goToPosition(getElevatorHeight((int) pathId)));
+            autoCommand = autoCommand.andThen(followPath);
         }
 
         return autoCommand;
@@ -92,6 +97,15 @@ public final class Dynareef {
             // Invalid
 
             default -> "INVALID PATH ID";
+        };
+    }
+
+    private static int getElevatorHeight(int pathId) {
+        return switch (pathId % 10) {
+            case 1 -> 100;
+            case 2 -> 200;
+            case 3 -> 300;
+            default -> 0;
         };
     }
 }
