@@ -15,6 +15,7 @@ import com.revrobotics.spark.config.MAXMotionConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.motorcontrol.Spark;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -24,6 +25,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Led;
+import frc.robot.subsystems.MotorSubsystem;
 import frc.robot.subsystems.PositionSubsystem;
 
 import static edu.wpi.first.units.Units.*;
@@ -52,6 +54,8 @@ public class RobotContainer {
 
     private final PositionSubsystem elevator;
 
+    private final MotorSubsystem dispenser = new MotorSubsystem(new SparkMax(3, MotorType.kBrushless));
+
 
     public RobotContainer() {
 
@@ -63,8 +67,8 @@ public class RobotContainer {
                     .i(0)
                     .d(0)
                     .apply(new MAXMotionConfig()
-                        .maxVelocity(6000)
-                        .maxAcceleration(12000)
+                        .maxVelocity(2000)
+                        .maxAcceleration(4000)
                         .allowedClosedLoopError(1))),
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
@@ -126,8 +130,8 @@ public class RobotContainer {
         //     wrist.goToPosition(80)));
         joystick.x().whileTrue(elevator.stayAtPosition(360));
         // joystick.y().whileTrue(pickup.run(0.2));
-//        joystick.rightTrigger().whileTrue(pickup.run(0.2));
-//        joystick.leftTrigger().whileTrue(pickup.run(-0.2));
+        joystick.rightTrigger().whileTrue(dispenser.run(0.2));
+        joystick.leftTrigger().whileTrue(dispenser.run(-0.2));
         joystick.povUp().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(0.45)));
         joystick.povDown().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(-0.45)));
         joystick.povRight().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityY(-0.45)));
