@@ -15,11 +15,11 @@ import com.revrobotics.spark.config.MAXMotionConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.motorcontrol.Spark;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.StartEndCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.generated.TunerConstants;
@@ -54,6 +54,8 @@ public class RobotContainer {
 
     private final PositionSubsystem elevator;
 
+    private final PositionSubsystem wrist;
+
     private final MotorSubsystem dispenser = new MotorSubsystem(new SparkMax(3, MotorType.kBrushless));
 
 
@@ -67,8 +69,8 @@ public class RobotContainer {
                     .i(0)
                     .d(0)
                     .apply(new MAXMotionConfig()
-                        .maxVelocity(2000)
-                        .maxAcceleration(4000)
+                        .maxVelocity(3000)
+                        .maxAcceleration(6000)
                         .allowedClosedLoopError(1))),
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
@@ -80,7 +82,23 @@ public class RobotContainer {
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
 
-        elevator = new PositionSubsystem(elevatorMotorLeader);
+        elevator = new PositionSubsystem(elevatorMotorLeader, true);
+
+        var wristMotor = new SparkMax(4, MotorType.kBrushless);
+        wristMotor.configure(
+            new SparkMaxConfig()
+                .apply(new ClosedLoopConfig()
+                    .p(0.4)
+                    .i(0)
+                    .d(0)
+                    .apply(new MAXMotionConfig()
+                        .maxVelocity(1000)
+                        .maxAcceleration(2000)
+                        .allowedClosedLoopError(1))),
+            SparkBase.ResetMode.kResetSafeParameters,
+            SparkBase.PersistMode.kPersistParameters);
+
+        wrist = new PositionSubsystem(wristMotor, false);
 
         autoChooser = AutoBuilder.buildAutoChooser();
         autoChooser.addOption("Dynareef", Commands.deferredProxy(() -> Dynareef.buildAuto(elevator)));
@@ -99,39 +117,50 @@ public class RobotContainer {
                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
             )
         );
-
-        //joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.a().whileTrue(drivetrain.applyRequest(() -> {
-            var tx = LimelightHelpers.getTX("limelight-reef");
-            var ta = LimelightHelpers.getTA("limelight-reef");
-//            var offset = ta * 1.51 + 5.57;
-            var offset = 20;
-            var sideways = (tx - offset * Math.signum(tx)) * -0.2;
-            sideways = MathUtil.clamp(sideways, -0.5, 0.5);
-            var rotationError = LimelightHelpers.getCameraPose_TargetSpace("limelight-reef")[4];
-            var rotation = rotationError * 0.1;
-            //rotation = MathUtil.clamp(rotation, -0.3, 0.3);
-            return new SwerveRequest.RobotCentric()
-                .withRotationalDeadband(0.5)
-                .withDeadband(0.5)
-                .withDriveRequestType(DriveRequestType.OpenLoopVoltage)
-                .withVelocityX(-joystick.getLeftY() * MaxSpeed)
-                .withVelocityY(sideways)
-                .withRotationalRate(rotation);
-        }));
-        joystick.b().whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
-        ));
-        // joystick.x().whileTrue(Commands.parallel(
-        //     elevator.goToPosition(50),
-        //     wrist.goToPosition(40)));
-        // joystick.y().whileTrue(Commands.parallel(
-        //     elevator.goToPosition(100),
-        //     wrist.goToPosition(80)));
-        joystick.x().whileTrue(elevator.stayAtPosition(360));
-        // joystick.y().whileTrue(pickup.run(0.2));
-        joystick.rightTrigger().whileTrue(dispenser.run(0.2));
-        joystick.leftTrigger().whileTrue(dispenser.run(-0.2));
+//        joystick.b().whileTrue(drivetrain.applyRequest(() -> {
+//            var tx = LimelightHelpers.getTX("limelight-reef");
+//            var ta = LimelightHelpers.getTA("limelight-reef");
+////            var offset = ta * 1.51 + 5.57;
+//            var offset = 20;
+//            var sideways = (tx - offset * Math.signum(tx)) * -0.2;
+//            sideways = MathUtil.clamp(sideways, -0.5, 0.5);
+//            var rotationError = LimelightHelpers.getCameraPose_TargetSpace("limelight-reef")[4];
+//            var rotation = rotationError * 0.1;
+//            //rotation = MathUtil.clamp(rotation, -0.3, 0.3);
+//            return new SwerveRequest.RobotCentric()
+//                .withRotationalDeadband(0.5)
+//                .withDeadband(0.5)
+//                .withDriveRequestType(DriveRequestType.OpenLoopVoltage)
+//                .withVelocityX(-joystick.getLeftY() * MaxSpeed)
+//                .withVelocityY(sideways)
+//                .withRotationalRate(rotation);
+//        }));
+        joystick.y().onTrue(
+            elevator
+                .stayAtPosition(26)
+                .withDeadline(wrist.goToPosition(-7))
+                .andThen(elevator.stayAtPosition(118))
+        );
+        joystick.y().onFalse(
+            elevator.stayAtPosition(0)
+        );
+        joystick.x().onTrue(
+            elevator
+                .stayAtPosition(26)
+                .withDeadline(wrist.goToPosition(-7))
+                .andThen(elevator.stayAtPosition(60))
+        );
+        joystick.x().onFalse(
+            elevator.stayAtPosition(0)
+        );
+        joystick.a().onTrue(
+            elevator.stayAtPosition(22).alongWith(wrist.stayAtPosition(-7))
+        );
+        joystick.a().onFalse(
+            elevator.stayAtPosition(0)
+        );
+        joystick.rightTrigger().whileTrue(dispenser.run(-1));
+        joystick.leftTrigger().whileTrue(dispenser.run(1));
         joystick.povUp().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(0.45)));
         joystick.povDown().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(-0.45)));
         joystick.povRight().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityY(-0.45)));

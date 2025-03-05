@@ -8,29 +8,41 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 
-import java.util.function.DoubleSupplier;
-
 public class PositionSubsystem extends SubsystemBase {
     private final SparkClosedLoopController controller;
     private final RelativeEncoder encoder;
+    private final boolean print;
+    private double setpoint;
 
-    public PositionSubsystem(SparkMax motor) {
+    public PositionSubsystem(SparkMax motor, boolean print) {
         controller = motor.getClosedLoopController();
         encoder = motor.getEncoder();
+        this.print = print;
+    }
+
+    @Override
+    public void periodic() {
+        if (!print) {
+            return;
+        }
+        System.out.printf("Position: %.2f, Velocity: %.2f\n", encoder.getPosition(), encoder.getVelocity());
     }
 
     public Command stayAtPosition(double position) {
-        return startEnd(
-            () -> setPosition(position),
-            () -> setPosition(0));
+        return runOnce(() -> setPosition(position));
     }
 
     public Command goToPosition(double position) {
         return runOnce(() -> setPosition(position))
-            .alongWith(new WaitUntilCommand(() -> Math.abs(encoder.getPosition() - position) < 5));
+            .alongWith(new WaitUntilCommand(this::isAtPosition));
+    }
+
+    public boolean isAtPosition() {
+        return Math.abs(encoder.getPosition() - setpoint) < 1;
     }
 
     private void setPosition(double position){
+        setpoint = position;
         controller.setReference(position, SparkBase.ControlType.kMAXMotionPositionControl);
     }
 }
