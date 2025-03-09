@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 5.9182500000000005,
-        "y": 3.8689999999999993
+        "x": 6.104120256012255,
+        "y": 3.861838747062705
       },
       "prevControl": null,
       "nextControl": {
-        "x": 6.756750000000002,
-        "y": 6.208999999999998
+        "x": 6.9426202560122565,
+        "y": 6.201838747062704
       },
       "isLocked": false,
       "linkedName": "Right Reef Bottom Branch"
     },
     {
       "anchor": {
-        "x": 1.29675,
-        "y": 7.05725
+        "x": 1.4013094695199075,
+        "y": 6.836006539828348
       },
       "prevControl": {
-        "x": 3.0127499999999996,
-        "y": 5.78
+        "x": 3.117309469519907,
+        "y": 5.558756539828348
       },
       "nextControl": null,
       "isLocked": false,
@@ -33,8 +33,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 4.0,
-    "maxAcceleration": 8.0,
+    "maxVelocity": 1.0,
+    "maxAcceleration": 2.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
