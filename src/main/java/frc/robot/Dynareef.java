@@ -34,10 +34,10 @@ public final class Dynareef {
 
         for (var i = 0; i < pathIds.length; i++) {
             var path = paths[i];
-            var pathId = pathIds[i];
+            var pathId = (int) pathIds[i];
             var followPath = AutoBuilder.followPath(path)
-                .alongWith(getPositionCommand(robot, (int) pathId))
-                .andThen(robot.dispenser.run(-1).withTimeout(1));
+                .alongWith(getPositionCommand(robot, pathId))
+                .andThen(getPostFollowCommand(robot, pathId));
             autoCommand = autoCommand.andThen(followPath);
         }
 
@@ -100,6 +100,10 @@ public final class Dynareef {
         };
     }
 
+    private static String getLimelightName(int pathId) {
+        return pathId / 10 % 2 == 0 ? "limelight-reefr" : "limelight-reefl";
+    }
+
     private static Command getPositionCommand(RobotContainer robot, int pathId) {
         return switch (pathId % 1000) {
             case 200, 300 -> robot.goToHomePosition();
@@ -110,5 +114,10 @@ public final class Dynareef {
                 default -> robot.goToLevel0();
             };
         };
+    }
+
+    private static Command getPostFollowCommand(RobotContainer robot, int pathId) {
+        return robot.finalizePosition()
+            .andThen(robot.dispenser.run(-1).withTimeout(1));
     }
 }

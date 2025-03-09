@@ -7,7 +7,6 @@ import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkMax;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 
 public class PositionSubsystem extends SubsystemBase {
     private final SparkClosedLoopController controller;
@@ -31,13 +30,8 @@ public class PositionSubsystem extends SubsystemBase {
         System.out.printf("Position: %.2f, Velocity: %.2f\n", encoder.getPosition(), encoder.getVelocity());
     }
 
-    public Command stayAtPosition(double position) {
-        return runOnce(() -> setPosition(position));
-    }
-
     public Command goToPosition(double position) {
-        return runOnce(() -> setPosition(position))
-            .alongWith(new WaitUntilCommand(this::isAtPosition));
+        return runOnce(() -> setPosition(position));
     }
 
     public boolean isAtPosition() {
