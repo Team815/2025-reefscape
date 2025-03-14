@@ -7,6 +7,7 @@ package frc.robot;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.events.EventTrigger;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -14,16 +15,17 @@ import com.revrobotics.spark.config.ClosedLoopConfig;
 import com.revrobotics.spark.config.MAXMotionConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.subsystems.Led;
-import frc.robot.subsystems.MotorSubsystem;
-import frc.robot.subsystems.PositionSubsystem;
+import frc.robot.subsystems.*;
 
 import java.util.function.Consumer;
 
@@ -56,12 +58,16 @@ public class RobotContainer {
 
     private final PositionSubsystem wrist;
 
-    public final MotorSubsystem dispenser = new MotorSubsystem(new SparkMax(3, MotorType.kBrushless));
+    public final ClawThingy dispenser = new ClawThingy(
+        new SparkMax(3, MotorType.kBrushless),
+        new DigitalInput(0),
+        new DigitalInput(1));
 
     private final MotorSubsystem climber = new MotorSubsystem(new SparkMax(5, MotorType.kBrushless));
 
-    public RobotContainer() {
+    private boolean autoRan = false;
 
+    public RobotContainer() {
         var elevatorMotorLeader = new SparkMax(1, MotorType.kBrushless);
         elevatorMotorLeader.configure(
             new SparkMaxConfig()
@@ -104,6 +110,8 @@ public class RobotContainer {
         autoChooser = AutoBuilder.buildAutoChooser();
         autoChooser.addOption("Dynareef", Commands.deferredProxy(() -> Dynareef.buildAuto(this)));
         SmartDashboard.putData("Auto Mode", autoChooser);
+
+        new EventTrigger("StartElevator").onTrue(Commands.print("Raise elevator"));
         configureBindings();
     }
 
@@ -121,39 +129,22 @@ public class RobotContainer {
                 }
             )
         );
-//        joystick.b().whileTrue(drivetrain.applyRequest(() -> {
-//            var tx = LimelightHelpers.getTX("limelight-reef");
-//            var ta = LimelightHelpers.getTA("limelight-reef");
-////            var offset = ta * 1.51 + 5.57;
-//            var offset = 20;
-//            var sideways = (tx - offset * Math.signum(tx)) * -0.2;
-//            sideways = MathUtil.clamp(sideways, -0.5, 0.5);
-//            var rotationError = LimelightHelpers.getCameraPose_TargetSpace("limelight-reef")[4];
-//            var rotation = rotationError * 0.1;
-//            //rotation = MathUtil.clamp(rotation, -0.3, 0.3);
-//            return new SwerveRequest.RobotCentric()
-//                .withRotationalDeadband(0.5)
-//                .withDeadband(0.5)
-//                .withDriveRequestType(DriveRequestType.OpenLoopVoltage)
-//                .withVelocityX(-joystick.getLeftY() * MaxSpeed)
-//                .withVelocityY(sideways)
-//                .withRotationalRate(rotation);
-//        }));
-        joystick.a().and(joystick.leftTrigger().negate()).onTrue(goToLevel1());
+        joystick.a().and(joystick.leftTrigger().negate()).onTrue(goToCoral1());
         joystick.a().and(joystick.leftTrigger().negate()).onFalse(goToHomePosition());
-        joystick.x().and(joystick.leftTrigger().negate()).onTrue(goToLevel2());
+        joystick.x().and(joystick.leftTrigger().negate()).onTrue(goToCoral2());
         joystick.x().and(joystick.leftTrigger().negate()).onFalse(goToHomePosition());
-        joystick.y().and(joystick.leftTrigger().negate()).onTrue(goToLevel3());
+        joystick.y().and(joystick.leftTrigger().negate()).onTrue(goToCoral3());
         joystick.y().and(joystick.leftTrigger().negate()).onFalse(goToHomePosition());
-        joystick.b().and(joystick.leftTrigger().negate()).whileTrue(finalizePosition());
-        joystick.x().and(joystick.leftTrigger()).whileTrue(goToPosition(48, -36));
-        joystick.x().and(joystick.leftTrigger()).onFalse(goToHomePosition());
-        joystick.y().and(joystick.leftTrigger()).whileTrue(goToPosition(84, -36));
-        joystick.y().and(joystick.leftTrigger()).onFalse(goToHomePosition());
-        joystick.rightTrigger().whileTrue(dispenser.run(-1));
-        joystick.rightBumper().whileTrue(dispenser.run(1));
-        joystick.b().and(joystick.leftTrigger()).whileTrue(climber.run(-3));
-        joystick.a().and(joystick.leftTrigger()).whileTrue(climber.run(3));
+        joystick.x().and(joystick.leftTrigger()).onTrue(goToAlgaeLow());
+        joystick.x().and(joystick.leftTrigger()).onFalse(goToProcessor());
+        joystick.y().and(joystick.leftTrigger()).onTrue(goToAlgaeHigh());
+        joystick.y().and(joystick.leftTrigger()).onFalse(goToProcessor());
+        joystick.b().and(joystick.leftTrigger().negate()).onTrue(finalizeStationPosition());
+        joystick.b().and(joystick.leftTrigger()).whileTrue(climber.run(-0.7));
+        joystick.a().and(joystick.leftTrigger()).whileTrue(climber.run(0.7));
+        joystick.rightTrigger().whileTrue(runDispenser(-1));
+        joystick.rightBumper().whileTrue(runDispenser(1));
+        joystick.leftBumper().whileTrue(finalizeReefPosition());
 
         joystick.povUp().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(0.45)));
         joystick.povDown().whileTrue(drivetrain.applyRequest(() -> drive.withVelocityX(-0.45)));
@@ -174,50 +165,126 @@ public class RobotContainer {
     }
 
     public Command getAutonomousCommand() {
-        return autoChooser.getSelected();
+        return Commands.runOnce(() -> autoRan = true).andThen(autoChooser.getSelected());
 //        return goToLevel4()
 //            .andThen(dispenser.run(-1).withTimeout(1))
 //            .andThen(goToHomePosition());
     }
 
-    public Command goToLevel0() {
-        return goToPosition(0, -7);
+    public Command fixFieldCentric() {
+        return Commands.either(
+            Commands.runOnce(() -> drivetrain.resetRotation(drivetrain.getState().Pose.getRotation().plus(Rotation2d.k180deg))),
+            Commands.none(),
+            () -> autoRan && DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red
+        ).andThen(Commands.runOnce(() -> autoRan = false));
     }
 
-    public Command goToLevel1() {
-        return goToPosition(18, -7);
+    public Command goToCoral0() {
+        return goToPosition(0, -7, true);
     }
 
-    public Command goToLevel2() {
-        return goToPosition(54, -7);
+    public Command goToCoral1() {
+        return goToPosition(18, -7, true);
     }
 
-    public Command goToLevel3() {
-        return goToPosition(118, -8);
+    public Command goToCoral2() {
+        return goToPosition(54, -7, true);
     }
 
-    private Command goToPosition(double elevatorPosition, double wristPosition) {
-        if (elevatorPosition <= 26) {
-            return elevator.goToPosition(elevatorPosition)
-                .alongWith(wrist.goToPosition(wristPosition));
-        }
-        return elevator.goToPosition(26)
-            .alongWith(wrist.goToPosition(wristPosition))
-            .withDeadline(Commands.waitUntil(() -> wristPosition < -6))
-            .andThen(elevator.goToPosition(elevatorPosition))
-            .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition()));
+    public Command goToCoral3() {
+        return goToPosition(119, -12, true);
+    }
+
+    public Command goToAlgaeHigh() {
+        return goToPosition(90, -42, false);
+    }
+
+    public Command goToAlgaeLow() {
+        return goToPosition(58, -42, false);
+    }
+
+    public Command goToProcessor() {
+        return goToPosition(40, -50, false);
     }
 
     public Command goToHomePosition() {
-        return elevator.goToPosition(0)
-            .alongWith(
-                wrist.goToPosition(-7),
-                Commands.waitUntil(() -> elevator.getPosition() < 26))
-            .andThen(wrist.goToPosition(-1.5))
-            .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition()));
+        return goToPosition(0, -2, false);
     }
 
-    public Command finalizePosition() {
+    private Command goToPosition(double elevatorTarget, double wristTarget, boolean holdingCoral) {
+//        return Commands.print("First").andThen(Commands.print("Second"), Commands.print("Third"));
+        var command = Commands.either(
+
+            // Elevator rising
+
+            Commands.either(
+
+                // Elevator not rising very high
+
+                elevator.goToPosition(elevatorTarget)
+                    .alongWith(
+                        wrist.goToPosition(wristTarget),
+                        Commands.print("Elevator rising a little")),
+
+                // Elevator rising high
+
+                elevator.goToPosition(26)
+                    .alongWith(
+                        wrist.goToPosition(wristTarget),
+                        Commands.print("Elevator rising high"))
+                    .withDeadline(Commands.waitUntil(() -> wristTarget < -6))
+                    .andThen(elevator.goToPosition(elevatorTarget))
+                    .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition())),
+                () -> elevatorTarget <= 26),
+
+            // Elevator falling
+
+            Commands.either(
+
+                // Wrist extending
+
+                wrist.goToPosition(wristTarget)
+                    .alongWith(
+                        elevator.goToPosition(Math.max(26, elevatorTarget)),
+                        Commands.print("Elevator falling"),
+                        Commands.print("Wrist extending"),
+                        Commands.waitUntil(() -> wrist.getPosition() < -6 || wrist.isAtPosition()))
+                    .andThen(elevator.goToPosition(elevatorTarget)),
+
+                // Wrist retracting
+
+                wrist.goToPosition(-7)
+                    .alongWith(
+                        Commands.print("Elevator falling"),
+                        Commands.print("Wrist retracting"),
+                        Commands.waitUntil(() -> wrist.getPosition() > -30)
+                            .andThen(elevator.goToPosition(elevatorTarget)),
+                        Commands.waitUntil(() -> elevator.getPosition() < 26)
+                    ).andThen(wrist.goToPosition(wristTarget)
+                        .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition()))),
+                () -> wrist.getPosition() > wristTarget
+            ),
+            () -> elevator.getPosition() < elevatorTarget
+        );
+
+        return Commands.either(
+            dispenser.receiveCoral(),
+            Commands.none(),
+            () -> holdingCoral
+        ).andThen(command);
+    }
+
+    private Command runDispenser(double speed) {
+        return Commands.either(
+            dispenser.run(speed),
+            dispenser.run(speed)
+                .withDeadline(Commands.waitUntil(dispenser::hasCoral)),
+            dispenser::hasCoral
+        );
+    }
+
+    public Command finalizeReefPosition() {
+        final double taTarget = 18;
         return drivetrain.applyRequest(() -> {
                 var limelightName = LimelightHelpers.getTA("limelight-reefl") > LimelightHelpers.getTA("limelight-reefr")
                     ? "limelight-reefl"
@@ -226,12 +293,11 @@ public class RobotContainer {
                 });
                 var tx = LimelightHelpers.getTX(limelightName);
                 var ta = LimelightHelpers.getTA(limelightName);
-                var taError = 28 - ta;
+                var taError = taTarget - ta;
                 var cameraPose = LimelightHelpers.getCameraPose_TargetSpace(limelightName);
                 var rotationError = cameraPose.length > 4 ? cameraPose[4] : 0;
                 var rotation = ta < 20 ? 0 : rotationError * 0.1;
                 var speedX = ta == 0 ? 0 : taError * 0.036;
-                System.out.println(limelightName);
                 return new SwerveRequest
                     .RobotCentric()
                     .withVelocityY(MathUtil.clamp(-tx * 0.05, -maxSpeed, maxSpeed))
@@ -246,11 +312,35 @@ public class RobotContainer {
                 : "limelight-reefr";
             var tx = LimelightHelpers.getTX(limelightName);
             var ta = LimelightHelpers.getTA(limelightName);
-            var taError = 28 - ta;
+            var taError = taTarget - ta;
             return tx != 0
                 && ta != 0
-                && Math.abs(tx) < 0.01
-                && Math.abs(taError) < 0.01;
+                && Math.abs(tx) < 2
+                && Math.abs(taError) < 4;
+        }));
+    }
+
+    public Command finalizeStationPosition() {
+        return drivetrain.applyRequest(() -> {
+                var limelightName = "limelight-station";
+                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, 26, __ -> {
+                });
+                var tx = LimelightHelpers.getTX(limelightName);
+                var ty = LimelightHelpers.getTY(limelightName);
+                return new SwerveRequest
+                    .RobotCentric()
+                    .withVelocityY(MathUtil.clamp(tx * 0.05, -maxSpeed, maxSpeed))
+                    .withVelocityX(MathUtil.clamp(ty * 0.05, -maxSpeed, maxSpeed))
+                    .withDeadband(0.1);
+            }
+        ).withDeadline(Commands.waitUntil(() -> {
+            var limelightName = "limelight-station";
+            var tx = LimelightHelpers.getTX(limelightName);
+            var ty = LimelightHelpers.getTY(limelightName);
+            return tx != 0
+                && ty != 0
+                && Math.abs(tx) < 2
+                && Math.abs(ty) < 2;
         }));
     }
 
@@ -261,6 +351,8 @@ public class RobotContainer {
         Consumer<Double> deadbandSetter) {
         if (elevator.getPosition() > heightThreshold) {
             maxSpeed /= reduction;
+        } else {
+            maxSpeed *= 0.9;
         }
         deadbandSetter.accept(maxSpeed * 0.1);
         return maxSpeed;

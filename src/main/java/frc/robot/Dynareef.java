@@ -2,6 +2,7 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path.Waypoint;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -35,7 +36,7 @@ public final class Dynareef {
         for (var i = 0; i < pathIds.length; i++) {
             var path = paths[i];
             var pathId = (int) pathIds[i];
-            var followPath = AutoBuilder.followPath(path)
+            var followPath = getFollowCommand(robot, path, pathId)
                 .alongWith(getPositionCommand(robot, pathId))
                 .andThen(getPostFollowCommand(robot, pathId));
             autoCommand = autoCommand.andThen(followPath);
@@ -104,20 +105,35 @@ public final class Dynareef {
         return pathId / 10 % 2 == 0 ? "limelight-reefr" : "limelight-reefl";
     }
 
+    private static Command getFollowCommand(RobotContainer robot, PathPlannerPath path, int pathId) {
+        return approachingStation(pathId)
+            ? Commands.waitSeconds(1).andThen(AutoBuilder.pathfindThenFollowPath(path, path.getGlobalConstraints()))
+            : AutoBuilder.pathfindThenFollowPath(path, path.getGlobalConstraints());
+    }
+
     private static Command getPositionCommand(RobotContainer robot, int pathId) {
-        return switch (pathId % 1000) {
-            case 200, 300 -> robot.goToHomePosition();
-            default -> switch (pathId % 10) {
-                case 1 -> robot.goToLevel1();
-                case 2 -> robot.goToLevel2();
-                case 3 -> robot.goToLevel3();
-                default -> robot.goToLevel0();
-            };
+        return approachingStation(pathId)
+            ? robot.goToHomePosition()
+            : switch (pathId % 10) {
+            case 1 -> robot.goToCoral1();
+            case 2 -> robot.goToCoral2();
+            case 3 -> robot.goToCoral3();
+            default -> robot.goToCoral0();
         };
     }
 
     private static Command getPostFollowCommand(RobotContainer robot, int pathId) {
-        return robot.finalizePosition()
-            .andThen(robot.dispenser.run(-1).withTimeout(1));
+        return approachingStation(pathId)
+            ? robot.finalizeStationPosition()
+            .andThen(robot.dispenser.receiveCoral().withTimeout(1))
+            : robot.finalizeReefPosition()
+            .andThen(robot.dispenser.run(-1).withTimeout(0.4));
+    }
+
+    private static boolean approachingStation(int pathId) {
+        return switch (pathId % 1000) {
+            case 200, 300 -> true;
+            default -> false;
+        };
     }
 }
