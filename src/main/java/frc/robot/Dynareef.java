@@ -1,9 +1,12 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.path.Waypoint;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import org.json.simple.parser.ParseException;
@@ -106,9 +109,9 @@ public final class Dynareef {
     }
 
     private static Command getFollowCommand(RobotContainer robot, PathPlannerPath path, int pathId) {
-        return approachingStation(pathId)
-            ? Commands.waitSeconds(1).andThen(AutoBuilder.pathfindThenFollowPath(path, path.getGlobalConstraints()))
-            : AutoBuilder.pathfindThenFollowPath(path, path.getGlobalConstraints());
+        return pathFindTo(
+            new Pose2d(path.getWaypoints().get(1).anchor(), path.getGoalEndState().rotation()),
+            path.getGlobalConstraints()).alongWith(Commands.print("Following path"));
     }
 
     private static Command getPositionCommand(RobotContainer robot, int pathId) {
@@ -127,7 +130,15 @@ public final class Dynareef {
             ? robot.finalizeStationPosition()
             .andThen(robot.dispenser.receiveCoral().withTimeout(1))
             : robot.finalizeReefPosition()
-            .andThen(robot.dispenser.run(-1).withTimeout(0.4));
+            .andThen(Commands.waitSeconds(0.5)) // Wait for claw to settle
+            .andThen(robot.dispenser.run(-1).withTimeout(1));
+    }
+
+    private static Command pathFindTo(Pose2d pose, PathConstraints constraints) {
+        return Commands.either(
+            AutoBuilder.pathfindToPose(pose, constraints),
+            AutoBuilder.pathfindToPoseFlipped(pose, constraints),
+            () -> DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Blue);
     }
 
     private static boolean approachingStation(int pathId) {

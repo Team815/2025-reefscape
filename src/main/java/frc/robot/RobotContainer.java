@@ -7,7 +7,11 @@ package frc.robot;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.events.EventTrigger;
+import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path.Waypoint;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -15,6 +19,7 @@ import com.revrobotics.spark.config.ClosedLoopConfig;
 import com.revrobotics.spark.config.MAXMotionConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -22,11 +27,14 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.*;
+import org.json.simple.parser.ParseException;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static edu.wpi.first.units.Units.*;
@@ -76,8 +84,8 @@ public class RobotContainer {
                     .i(0)
                     .d(0)
                     .apply(new MAXMotionConfig()
-                        .maxVelocity(3000)
-                        .maxAcceleration(6000)
+                        .maxVelocity(5000)
+                        .maxAcceleration(10000)
                         .allowedClosedLoopError(0.2))),
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
@@ -99,13 +107,16 @@ public class RobotContainer {
                     .i(0)
                     .d(0)
                     .apply(new MAXMotionConfig()
-                        .maxVelocity(2000)
-                        .maxAcceleration(4000)
+                        .maxVelocity(3000)
+                        .maxAcceleration(6000)
                         .allowedClosedLoopError(0.2))),
             SparkBase.ResetMode.kResetSafeParameters,
             SparkBase.PersistMode.kPersistParameters);
 
         wrist = new PositionSubsystem(wristMotor, 0, false);
+
+        NamedCommands.registerCommand("MoveSideways", moveSideways());
+
 
         autoChooser = AutoBuilder.buildAutoChooser();
         autoChooser.addOption("Dynareef", Commands.deferredProxy(() -> Dynareef.buildAuto(this)));
@@ -121,8 +132,8 @@ public class RobotContainer {
         drivetrain.setDefaultCommand(
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() -> {
-                    var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, 26, drive::withDeadband);
-                    var maxAngularRate = getHeightDependentSpeed(MaxAngularRate, 2, 26, drive::withRotationalDeadband);
+                    var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, drive::withDeadband);
+                    var maxAngularRate = getHeightDependentSpeed(MaxAngularRate, 2, drive::withRotationalDeadband);
                     return drive.withVelocityX(-joystick.getLeftY() * maxSpeed) // Drive forward with negative Y (forward)
                         .withVelocityY(-joystick.getLeftX() * maxSpeed) // Drive left with negative X (left)
                         .withRotationalRate(-joystick.getRightX() * maxAngularRate); // Drive counterclockwise with negative X (left)
@@ -140,8 +151,8 @@ public class RobotContainer {
         joystick.y().and(joystick.leftTrigger()).onTrue(goToAlgaeHigh());
         joystick.y().and(joystick.leftTrigger()).onFalse(goToProcessor());
         joystick.b().and(joystick.leftTrigger().negate()).onTrue(finalizeStationPosition());
-        joystick.b().and(joystick.leftTrigger()).whileTrue(climber.run(-0.7));
-        joystick.a().and(joystick.leftTrigger()).whileTrue(climber.run(0.7));
+        joystick.b().and(joystick.leftTrigger()).whileTrue(climber.run(-0.07));
+        joystick.a().and(joystick.leftTrigger()).whileTrue(climber.run(0.07));
         joystick.rightTrigger().whileTrue(runDispenser(-1));
         joystick.rightBumper().whileTrue(runDispenser(1));
         joystick.leftBumper().whileTrue(finalizeReefPosition());
@@ -160,15 +171,41 @@ public class RobotContainer {
 
         // reset the field-centric heading on left bumper press
         joystick.back().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+        joystick.start().onTrue(Commands.deferredProxy(() -> elevator.goToPosition(elevator.getPosition())));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
 
     public Command getAutonomousCommand() {
         return Commands.runOnce(() -> autoRan = true).andThen(autoChooser.getSelected());
-//        return goToLevel4()
-//            .andThen(dispenser.run(-1).withTimeout(1))
-//            .andThen(goToHomePosition());
+    }
+
+    private Command moveSideways() {
+        PathPlannerPath forwardPath = null;
+        PathPlannerPath backwardPath = null;
+        try {
+            forwardPath = PathPlannerPath.fromPathFile("Forward");
+            backwardPath = PathPlannerPath.fromPathFile("Backward");
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
+        }
+        return AutoBuilder.resetOdom(forwardPath.getStartingHolonomicPose().orElseThrow())
+            .andThen(AutoBuilder.followPath(forwardPath))
+            .andThen(drivetrain.applyRequest(() -> new SwerveRequest
+                .RobotCentric()
+                .withVelocityY(0.5)).withTimeout(2))
+            .andThen(
+                Commands.either(
+                    AutoBuilder.pathfindToPose(
+                        new Pose2d(backwardPath.getWaypoints().get(1).anchor(), backwardPath.getGoalEndState().rotation()),
+                        backwardPath.getGlobalConstraints()),
+                    AutoBuilder.pathfindToPoseFlipped(
+                        new Pose2d(backwardPath.getWaypoints().get(1).anchor(), backwardPath.getGoalEndState().rotation()),
+                        backwardPath.getGlobalConstraints()),
+                    () -> DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Blue
+                )
+
+            );
     }
 
     public Command fixFieldCentric() {
@@ -184,15 +221,15 @@ public class RobotContainer {
     }
 
     public Command goToCoral1() {
-        return goToPosition(18, -7, true);
+        return goToPosition(21, -9, true);
     }
 
     public Command goToCoral2() {
-        return goToPosition(54, -7, true);
+        return goToPosition(57, -9, true);
     }
 
     public Command goToCoral3() {
-        return goToPosition(119, -12, true);
+        return goToPosition(119, -14, true);
     }
 
     public Command goToAlgaeHigh() {
@@ -208,7 +245,7 @@ public class RobotContainer {
     }
 
     public Command goToHomePosition() {
-        return goToPosition(0, -2, false);
+        return goToPosition(0, -4, false);
     }
 
     private Command goToPosition(double elevatorTarget, double wristTarget, boolean holdingCoral) {
@@ -289,14 +326,15 @@ public class RobotContainer {
                 var limelightName = LimelightHelpers.getTA("limelight-reefl") > LimelightHelpers.getTA("limelight-reefr")
                     ? "limelight-reefl"
                     : "limelight-reefr";
-                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, 26, __ -> {
+                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, __ -> {
                 });
                 var tx = LimelightHelpers.getTX(limelightName);
                 var ta = LimelightHelpers.getTA(limelightName);
                 var taError = taTarget - ta;
                 var cameraPose = LimelightHelpers.getCameraPose_TargetSpace(limelightName);
                 var rotationError = cameraPose.length > 4 ? cameraPose[4] : 0;
-                var rotation = ta < 20 ? 0 : rotationError * 0.1;
+            System.out.println(rotationError);
+                var rotation = ta < 10 ? 0 : rotationError * 0.1;
                 var speedX = ta == 0 ? 0 : taError * 0.036;
                 return new SwerveRequest
                     .RobotCentric()
@@ -316,14 +354,14 @@ public class RobotContainer {
             return tx != 0
                 && ta != 0
                 && Math.abs(tx) < 2
-                && Math.abs(taError) < 4;
+                && Math.abs(taError) < 2;
         }));
     }
 
     public Command finalizeStationPosition() {
         return drivetrain.applyRequest(() -> {
                 var limelightName = "limelight-station";
-                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, 26, __ -> {
+                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, __ -> {
                 });
                 var tx = LimelightHelpers.getTX(limelightName);
                 var ty = LimelightHelpers.getTY(limelightName);
@@ -347,14 +385,12 @@ public class RobotContainer {
     private double getHeightDependentSpeed(
         double maxSpeed,
         double reduction,
-        double heightThreshold,
         Consumer<Double> deadbandSetter) {
-        if (elevator.getPosition() > heightThreshold) {
-            maxSpeed /= reduction;
-        } else {
-            maxSpeed *= 0.9;
-        }
-        deadbandSetter.accept(maxSpeed * 0.1);
-        return maxSpeed;
+        var minSpeed = maxSpeed / reduction;
+        maxSpeed *= 0.9;
+        var position = elevator.getPosition();
+        var speed = MathUtil.interpolate(minSpeed, maxSpeed, (120 - position) / 90);
+        deadbandSetter.accept(speed * 0.1);
+        return speed;
     }
 }

@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 5.467781508949551,
-        "y": 2.727483427228664
+        "x": 5.062360272298651,
+        "y": 2.6847163554154347
       },
       "prevControl": null,
       "nextControl": {
-        "x": 4.5317815089495515,
-        "y": 2.2204834272286647
+        "x": 4.233820566627743,
+        "y": 1.6865874363882765
       },
       "isLocked": false,
       "linkedName": "Bottom Right Reef Right Branch"
     },
     {
       "anchor": {
-        "x": 1.1028688524590162,
-        "y": 1.6933913934426232
+        "x": 0.8511270491803278,
+        "y": 0.9981045081967216
       },
       "prevControl": {
-        "x": 2.8676188524590165,
-        "y": 2.2491413934426236
+        "x": 1.9500097578988504,
+        "y": 1.3471973217570206
       },
       "nextControl": null,
       "isLocked": false,
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 55.0
+    "rotation": 49.08561677997483
   },
   "reversed": false,
   "folder": "Bottom Station",
