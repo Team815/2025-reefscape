@@ -9,9 +9,7 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.events.EventTrigger;
-import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.path.Waypoint;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -23,23 +21,25 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.PowerDistribution;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.*;
 import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.function.BiConsumer;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static edu.wpi.first.units.Units.*;
 
 public class RobotContainer {
+    private final PowerDistribution powerDist = new PowerDistribution(1, PowerDistribution.ModuleType.kRev);
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
 
@@ -74,6 +74,13 @@ public class RobotContainer {
     private final MotorSubsystem climber = new MotorSubsystem(new SparkMax(5, MotorType.kBrushless));
 
     private boolean autoRan = false;
+
+    public SubsystemBase debug = new SubsystemBase() {
+        @Override
+        public void periodic() {
+//            System.out.println(wrist.getPosition());
+        }
+    };
 
     public RobotContainer() {
         var elevatorMotorLeader = new SparkMax(1, MotorType.kBrushless);
@@ -150,10 +157,8 @@ public class RobotContainer {
         joystick.x().and(joystick.leftTrigger()).onFalse(goToProcessor());
         joystick.y().and(joystick.leftTrigger()).onTrue(goToAlgaeHigh());
         joystick.y().and(joystick.leftTrigger()).onFalse(goToProcessor());
-        joystick.b().and(joystick.leftTrigger().negate()).onTrue(finalizeStationPosition());
-        joystick.b().and(joystick.leftTrigger()).whileTrue(climber.run(-0.07));
         joystick.a().and(joystick.leftTrigger()).whileTrue(climber.run(0.07));
-        joystick.rightTrigger().whileTrue(runDispenser(-1));
+        joystick.rightTrigger().whileTrue(dispenseCoral());
         joystick.rightBumper().whileTrue(runDispenser(1));
         joystick.leftBumper().whileTrue(finalizeReefPosition());
 
@@ -171,7 +176,7 @@ public class RobotContainer {
 
         // reset the field-centric heading on left bumper press
         joystick.back().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
-        joystick.start().onTrue(Commands.deferredProxy(() -> elevator.goToPosition(elevator.getPosition())));
+        joystick.start().onTrue(Commands.defer(() -> elevator.goToPosition(elevator.getPosition()), Set.of(elevator)));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
@@ -221,23 +226,23 @@ public class RobotContainer {
     }
 
     public Command goToCoral1() {
-        return goToPosition(21, -9, true);
+        return goToPosition(27, -13, true);
     }
 
     public Command goToCoral2() {
-        return goToPosition(57, -9, true);
+        return goToPosition(60, -13, true);
     }
 
     public Command goToCoral3() {
-        return goToPosition(119, -14, true);
+        return goToPosition(119, -16, true);
     }
 
     public Command goToAlgaeHigh() {
-        return goToPosition(90, -42, false);
+        return goToPosition(94, -50, false);
     }
 
     public Command goToAlgaeLow() {
-        return goToPosition(58, -42, false);
+        return goToPosition(60, -50, false);
     }
 
     public Command goToProcessor() {
@@ -245,10 +250,15 @@ public class RobotContainer {
     }
 
     public Command goToHomePosition() {
-        return goToPosition(0, -4, false);
+        return Commands.either(
+            Commands.none(),
+            goToPosition(0, -5, false),
+            dispenser::hasAlgae
+        );
     }
 
     private Command goToPosition(double elevatorTarget, double wristTarget, boolean holdingCoral) {
+        final double wristClearance = -10;
 //        return Commands.print("First").andThen(Commands.print("Second"), Commands.print("Third"));
         var command = Commands.either(
 
@@ -269,9 +279,12 @@ public class RobotContainer {
                     .alongWith(
                         wrist.goToPosition(wristTarget),
                         Commands.print("Elevator rising high"))
-                    .withDeadline(Commands.waitUntil(() -> wristTarget < -6))
-                    .andThen(elevator.goToPosition(elevatorTarget))
-                    .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition())),
+                    .withDeadline(Commands.waitUntil(() -> wrist.getPosition() < wristClearance + 1))
+                    .andThen(
+                        elevator.goToPosition(elevatorTarget)
+                            .alongWith(Commands.print("Continuing elevator"))
+                            .withDeadline(Commands.waitUntil(() -> elevator.isAtPosition() && wrist.isAtPosition()))
+                    ),
                 () -> elevatorTarget <= 26),
 
             // Elevator falling
@@ -284,13 +297,13 @@ public class RobotContainer {
                     .alongWith(
                         elevator.goToPosition(Math.max(26, elevatorTarget)),
                         Commands.print("Elevator falling"),
-                        Commands.print("Wrist extending"),
-                        Commands.waitUntil(() -> wrist.getPosition() < -6 || wrist.isAtPosition()))
+                        Commands.print("Wrist extending"))
+                    .withDeadline(Commands.waitUntil(() -> wrist.getPosition() < wristClearance - 1 || wrist.isAtPosition()))
                     .andThen(elevator.goToPosition(elevatorTarget)),
 
                 // Wrist retracting
 
-                wrist.goToPosition(-7)
+                wrist.goToPosition(wristClearance)
                     .alongWith(
                         Commands.print("Elevator falling"),
                         Commands.print("Wrist retracting"),
@@ -321,41 +334,59 @@ public class RobotContainer {
     }
 
     public Command finalizeReefPosition() {
-        final double taTarget = 18;
-        return drivetrain.applyRequest(() -> {
-                var limelightName = LimelightHelpers.getTA("limelight-reefl") > LimelightHelpers.getTA("limelight-reefr")
-                    ? "limelight-reefl"
-                    : "limelight-reefr";
-                var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, __ -> {
-                });
-                var tx = LimelightHelpers.getTX(limelightName);
-                var ta = LimelightHelpers.getTA(limelightName);
-                var taError = taTarget - ta;
-                var cameraPose = LimelightHelpers.getCameraPose_TargetSpace(limelightName);
-                var rotationError = cameraPose.length > 4 ? cameraPose[4] : 0;
-            System.out.println(rotationError);
-                var rotation = ta < 10 ? 0 : rotationError * 0.1;
-                var speedX = ta == 0 ? 0 : taError * 0.036;
-                return new SwerveRequest
-                    .RobotCentric()
-                    .withVelocityY(MathUtil.clamp(-tx * 0.05, -maxSpeed, maxSpeed))
-                    .withVelocityX(MathUtil.clamp(speedX, -maxSpeed, maxSpeed))
-                    .withRotationalRate(rotation)
-                    .withDeadband(0.1)
-                    .withRotationalDeadband(0.1);
-            }
-        ).withDeadline(Commands.waitUntil(() -> {
-            var limelightName = LimelightHelpers.getTA("limelight-reefl") > LimelightHelpers.getTA("limelight-reefr")
+        final double taTargetReefr = 14;
+        final double taTargetReefl = 14;
+        return Commands.defer(() -> {
+            var taLeft = LimelightHelpers.getTA("limelight-reefl");
+            var taRight = LimelightHelpers.getTA("limelight-reefr");
+            var rotationLeft = taLeft == 0 ? 45 : LimelightHelpers.getCameraPose_TargetSpace("limelight-reefl")[4];
+            var rotationRight = taRight == 0 ? 45 : LimelightHelpers.getCameraPose_TargetSpace("limelight-reefr")[4];
+            taLeft = Math.abs(rotationLeft) >= 45 ? 0 : taLeft;
+            taRight = Math.abs(rotationRight) >= 45 ? 0 : taRight;
+            var limelightName = taLeft == 0 && taRight == 0
+                ? ""
+                : taLeft > taRight
                 ? "limelight-reefl"
                 : "limelight-reefr";
-            var tx = LimelightHelpers.getTX(limelightName);
-            var ta = LimelightHelpers.getTA(limelightName);
-            var taError = taTarget - ta;
-            return tx != 0
-                && ta != 0
-                && Math.abs(tx) < 2
-                && Math.abs(taError) < 2;
-        }));
+            var taTarget = limelightName.equals("limelight-reefr") ? taTargetReefr : taTargetReefl;
+            return Commands.either(
+                drivetrain.applyRequest(() -> new SwerveRequest.RobotCentric().withVelocityX(-0.5))
+                    .withDeadline(Commands.waitUntil(() ->
+                        LimelightHelpers.getTA("limelight-reefl") != 0
+                            || LimelightHelpers.getTA("limelight-reefr") != 0))
+                    .andThen(finalizeReefPosition().alongWith(Commands.print("Recursion"))),
+                drivetrain.applyRequest(() -> {
+                        var maxSpeed = getHeightDependentSpeed(MaxSpeed, 6, __ -> {
+                        });
+                        var tx = LimelightHelpers.getTX(limelightName);
+                        var ta = LimelightHelpers.getTA(limelightName);
+                        var taError = taTarget - ta;
+                        var cameraPose = LimelightHelpers.getCameraPose_TargetSpace(limelightName);
+                        var rotation = cameraPose.length > 4 ? cameraPose[4] : 0;
+                        var rotationTarget = limelightName.equals("limelight-reefr") ? -28 : 27;
+                    System.out.println(limelightName + ", TX: " + tx + ", TA: " + taError);
+                        var rotationRate = ta < 10 ? 0 : (rotation - rotationTarget) * 0.1;
+                        var speedX = ta == 0 ? 0 : taError * 0.05;
+                        return new SwerveRequest
+                            .RobotCentric()
+                            .withVelocityY(MathUtil.clamp(tx * -0.05, -maxSpeed, maxSpeed))
+                            .withVelocityX(MathUtil.clamp(speedX, -maxSpeed, maxSpeed))
+//                            .withRotationalRate(rotationRate)
+                            .withDeadband(0.1)
+                            .withRotationalDeadband(0.1);
+                    }
+                ).withDeadline(Commands.waitUntil(() -> {
+                    var tx = LimelightHelpers.getTX(limelightName);
+                    var ta = LimelightHelpers.getTA(limelightName);
+                    var taError = taTarget - ta;
+                    return tx != 0
+                        && ta != 0
+                        && Math.abs(tx) < 2
+                        && Math.abs(taError) < 2;
+                })),
+                limelightName::isEmpty
+            ).andThen(Commands.print("In position"));
+        }, Set.of(drivetrain)).andThen(Commands.print("Passed proxy command"));
     }
 
     public Command finalizeStationPosition() {
@@ -380,6 +411,17 @@ public class RobotContainer {
                 && Math.abs(tx) < 2
                 && Math.abs(ty) < 2;
         }));
+    }
+
+    public Command dispenseCoral() {
+        return runDispenser(-1);
+//        return Commands.defer(
+//            () -> runDispenser(-1).alongWith(Commands.either(
+//                wrist.goToPosition(-10),
+//                Commands.none(),
+//                () -> elevator.getPosition() > 110)),
+//            Set.of(wrist)
+//        );
     }
 
     private double getHeightDependentSpeed(

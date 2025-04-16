@@ -3,7 +3,6 @@ package frc.robot;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.path.Waypoint;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -111,7 +110,8 @@ public final class Dynareef {
     private static Command getFollowCommand(RobotContainer robot, PathPlannerPath path, int pathId) {
         return pathFindTo(
             new Pose2d(path.getWaypoints().get(1).anchor(), path.getGoalEndState().rotation()),
-            path.getGlobalConstraints()).alongWith(Commands.print("Following path"));
+            path.getGlobalConstraints())
+            .alongWith(Commands.print("Following path")).andThen(Commands.print("Finished following path"));
     }
 
     private static Command getPositionCommand(RobotContainer robot, int pathId) {
@@ -130,8 +130,9 @@ public final class Dynareef {
             ? robot.finalizeStationPosition()
             .andThen(robot.dispenser.receiveCoral().withTimeout(1))
             : robot.finalizeReefPosition()
+            .andThen(Commands.print("Passed finalizeReefPosition"))
             .andThen(Commands.waitSeconds(0.5)) // Wait for claw to settle
-            .andThen(robot.dispenser.run(-1).withTimeout(1));
+            .andThen(robot.dispenseCoral().withTimeout(0.6));
     }
 
     private static Command pathFindTo(Pose2d pose, PathConstraints constraints) {
